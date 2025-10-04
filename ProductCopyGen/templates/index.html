@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>🛍️ ProductCopyGen - Demo Profesional</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#f9fafb; margin:0; padding:0; color:#111827;}
+  header { background:#4f46e5; color:white; padding:50px 20px; text-align:center;}
+  header h1 { margin:0; font-size:2.5em;}
+  header p { margin:10px 0 0; font-size:1.2em;}
+  section { max-width:900px; margin:40px auto; padding:20px; text-align:center;}
+  input, select { padding:12px; width:60%; border:1px solid #ccc; border-radius:8px; font-size:1em; margin-top:10px;}
+  button { padding:12px 20px; margin-left:10px; background:#4f46e5; color:white; border:none; border-radius:8px; font-size:1em; cursor:pointer; transition:0.3s;}
+  button:hover { background:#3730a3;}
+  .result, .history-item { margin-top:20px; padding:15px; border-radius:12px; background:white; box-shadow:0 4px 10px rgba(0,0,0,0.1); text-align:left; font-size:1.1em;}
+  .counter { margin-top:20px; font-weight:bold; color:#4f46e5;}
+  .history-section { text-align:left; max-width:600px; margin:30px auto; }
+  .copy-btn { margin-left:10px; padding:4px 8px; font-size:0.9em; background:#f59e0b; color:white; border:none; border-radius:6px; cursor:pointer;}
+  .copy-btn:hover { background:#b45309; }
+  .email-form { display:none; margin-top:20px;}
+  .email-form input { width:70%; margin-top:10px; }
+  .email-form button { margin-left:5px; margin-top:10px;}
+  .email-msg { margin-top:10px; color:green; font-weight:bold; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛍️ ProductCopyGen</h1>
+  <p>Convierte tus productos en ventas con descripciones irresistibles</p>
+</header>
+
+<section>
+  <h2>Prueba gratis</h2>
+  <p><strong>Genera hasta 3 descripciones de ejemplo</strong></p>
+  <input type="text" id="product" placeholder="Nombre del producto..." />
+  <select id="category">
+    <option value="General">General</option>
+    <option value="Moda">Moda</option>
+    <option value="Tecnología">Tecnología</option>
+    <option value="Hogar">Hogar</option>
+    <option value="Deporte">Deporte</option>
+  </select>
+  <button onclick="generate()">Generar</button>
+
+  <div class="counter" id="counter"></div>
+  <div class="result" id="result" style="display:none;"></div>
+
+  <!-- Formulario de email -->
+  <div class="email-form" id="emailForm">
+    <p>⚠️ Has agotado tus usos gratuitos.<br>
+       Deja tu email y te avisaremos cuando lancemos la versión completa.</p>
+    <input type="email" id="email" placeholder="Tu correo electrónico" />
+    <button onclick="sendEmail()">Enviar</button>
+    <div class="email-msg" id="emailMsg"></div>
+  </div>
+</section>
+
+<section class="history-section">
+  <h3>Últimas descripciones generadas</h3>
+  <div id="historyList">Cargando...</div>
+</section>
+
+<script>
+let usos = localStorage.getItem("usos") ? parseInt(localStorage.getItem("usos")) : 3;
+document.getElementById("counter").innerText = "Usos restantes: " + usos;
+
+async function generate() {
+  if (usos <= 0) {
+    document.getElementById("result").style.display = "none";
+    document.getElementById("emailForm").style.display = "block";
+    return;
+  }
+
+  const product = document.getElementById("product").value;
+  const category = document.getElementById("category").value;
+
+  const response = await fetch("/generate", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({product, category})
+  });
+  const data = await response.json();
+
+  document.getElementById("result").innerHTML = `<span>${data.text}</span> <button class="copy-btn" onclick="copyText('${data.text}')">Copiar</button>`;
+  document.getElementById("result").style.display = "block";
+
+  usos = data.usos;
+  localStorage.setItem("usos", usos);
+  document.getElementById("counter").innerText = "Usos restantes: " + usos;
+
+  if(usos <= 0) document.getElementById("emailForm").style.display = "block";
+
+  loadHistory();
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text);
+  alert("¡Copiado al portapapeles!");
+}
+
+async function sendEmail() {
+  const email = document.getElementById("email").value;
+  if(!email.includes("@")){
+    document.getElementById("emailMsg").innerText = "❌ Ingresa un correo válido.";
+    return;
+  }
+  try {
+    const response = await fetch("/subscribe", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({email})
+    });
+    const data = await response.json();
+    if(data.status === "ok"){
+      document.getElementById("emailMsg").innerText = "✅ ¡Gracias! Te avisaremos pronto.";
+      document.getElementById("email").value = "";
+    } else {
+      document.getElementById("emailMsg").innerText = "❌ " + data.message;
+    }
+  } catch {
+    document.getElementById("emailMsg").innerText = "❌ Error al enviar. Intenta de nuevo.";
+  }
+}
+
+async function loadHistory() {
+  const response = await fetch("/history");
+  const data = await response.json();
+  const lastThree = data.history.slice(-3).reverse();
+  const list = lastThree.map(h => `<div class="history-item">${h}</div>`).join("");
+  document.getElementById("historyList").innerHTML = list || "No hay historial aún";
+}
+
+loadHistory();
+</script>
+</body>
+</html>
